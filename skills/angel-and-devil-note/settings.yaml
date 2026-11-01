@@ -1,0 +1,20 @@
+# TTS settings for angel-and-devil-note.
+# Do not put API keys here — use the GEMINI_API_KEY environment variable.
+#
+# Precedence: CLI flags > environment variables > this file > built-in defaults.
+
+model: gemini-3.8-flash-tts
+
+speed:
+  # Playback rate via ffmpeg atempo (1.0 = no change).
+  ja: 1.2
+  en: 1.1
+
+# See references/Voices.md for the full prebuilt list.
+voices:
+  angel: Leda
+  devil: Puck
+
+styles:
+  angel: warm, bright, polite, and encouraging
+  devil: rough, streetwise, teasing, and mischievously cynical

@@ -1,0 +1,7 @@
+skills/angel-and-devil-note/scripts/.venv/
+__pycache__/
+*.py[cod]
+*.wav
+.env
+.env.*
+.DS_Store
