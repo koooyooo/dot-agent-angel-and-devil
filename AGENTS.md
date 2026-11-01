@@ -46,11 +46,11 @@ scripts/.venv/bin/pip install -r scripts/requirements.txt
 
 export PYTHON=scripts/.venv/bin/python
 $PYTHON scripts/speak.py path/to/dialogue.md --dry-run   # パース確認
-$PYTHON scripts/speak.py path/to/dialogue.md -o out.wav  # WAV 保存（要 GEMINI_API_KEY）
-$PYTHON scripts/speak.py path/to/dialogue.md --play      # 再生
+$PYTHON scripts/speak.py path/to/dialogue.md -o out.wav -y  # WAV 保存（要 GEMINI_API_KEY・ユーザー許可後）
+$PYTHON scripts/speak.py path/to/dialogue.md --play -y      # 再生
 ```
 
-TTS 関連の環境変数: `GEMINI_API_KEY`（必須）, `GEMINI_TTS_MODEL`, `GEMINI_TTS_ANGEL_VOICE`, `GEMINI_TTS_DEVIL_VOICE`, `GEMINI_TTS_SPEED`（既定は日本語 `1.2` / 英語 `1.0`。`1.0` 以外は `ffmpeg` が必要）。
+TTS 関連の環境変数: `GEMINI_API_KEY`（必須）, `GEMINI_TTS_MODEL`, `GEMINI_TTS_ANGEL_VOICE`, `GEMINI_TTS_DEVIL_VOICE`, `GEMINI_TTS_SPEED`（既定は日本語 `1.2` / 英語 `1.0`。`1.0` 以外は `ffmpeg` が必要）。`-y` なしでは確認プロンプト（非 TTY では中止）。
 
 ## Working on the skill
 
@@ -65,7 +65,7 @@ TTS 関連の環境変数: `GEMINI_API_KEY`（必須）, `GEMINI_TTS_MODEL`, `GE
 
   （英語は `Angel` / `Devil`。絵文字と太字ラベルがパースの前提）
 - **掛け合いの長さ**: 平均 2–3 往復、切りの良いところで終える。多くは天使が締める想定。悪魔は各ターンに本当の指摘を 1 つだけ混ぜる。
-- **TTS は明示時のみ**: キーが無ければ読み上げをスキップし、テキスト出力のみ。
+- **TTS は明示時のみ + 課金確認必須**: 生成前にユーザー許可を取る。キーが無ければスキップしテキストのみ。`speak.py` は確認プロンプトあり（許可済みなら `-y`）。
 
 ## Docs sync
 

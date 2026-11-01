@@ -140,17 +140,19 @@ Typical length: about **2–3 exchanges**, ending on a clean beat (the Angel usu
 
 Requires `GEMINI_API_KEY`. Without it, the skill skips speech and keeps text-only output.
 
+**Cost / consent:** TTS calls the Gemini API and may incur charges on the Google account / project tied to `GEMINI_API_KEY`. Speech runs only when you explicitly ask, and the agent must confirm with you before generating audio. `speak.py` also prompts for confirmation (use `-y` / `--yes` only after you have already approved).
+
 ```bash
 cd skills/angel-and-devil-note
 python3 -m venv scripts/.venv
 scripts/.venv/bin/pip install -r scripts/requirements.txt
 
 export PYTHON=scripts/.venv/bin/python
-# Save WAV
-$PYTHON scripts/speak.py path/to/dialogue.md -o out.wav
+# Save WAV (omit -y to get an interactive confirm prompt)
+$PYTHON scripts/speak.py path/to/dialogue.md -o out.wav -y
 # Play
-$PYTHON scripts/speak.py path/to/dialogue.md --play
-# Parse check only
+$PYTHON scripts/speak.py path/to/dialogue.md --play -y
+# Parse check only (no API call)
 $PYTHON scripts/speak.py path/to/dialogue.md --dry-run
 ```
 

@@ -140,17 +140,19 @@ Agent チャットで `/` を押し、スキルを選ぶ（またはそのまま
 
 `GEMINI_API_KEY` が必要です。無い場合は読み上げをスキップし、テキスト出力のみ行います。
 
+**費用・同意:** TTS は Gemini API を呼び、`GEMINI_API_KEY` に紐づく Google アカウント／プロジェクトへ従量課金されることがあります。読み上げは明示指定時のみで、エージェントは音声生成の前に必ず確認を取ります。`speak.py` も実行時に確認プロンプトを出します（既に許可済みのときだけ `-y` / `--yes` を使ってください）。
+
 ```bash
 cd skills/angel-and-devil-note
 python3 -m venv scripts/.venv
 scripts/.venv/bin/pip install -r scripts/requirements.txt
 
 export PYTHON=scripts/.venv/bin/python
-# WAV 保存
-$PYTHON scripts/speak.py path/to/dialogue.md -o out.wav
+# WAV 保存（-y を外すと対話で確認プロンプトが出る）
+$PYTHON scripts/speak.py path/to/dialogue.md -o out.wav -y
 # 再生
-$PYTHON scripts/speak.py path/to/dialogue.md --play
-# パース確認のみ
+$PYTHON scripts/speak.py path/to/dialogue.md --play -y
+# パース確認のみ（API なし）
 $PYTHON scripts/speak.py path/to/dialogue.md --dry-run
 ```
 

@@ -401,7 +401,43 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="API を呼ばず、パース結果だけ表示する",
     )
+    parser.add_argument(
+        "-y",
+        "--yes",
+        action="store_true",
+        help="課金確認プロンプトを省略する（ユーザーが既に許可した場合のみ）",
+    )
     return parser.parse_args(argv)
+
+
+def confirm_tts_charge(*, assume_yes: bool, turns: int, model: str) -> bool:
+    """Require explicit approval before calling the paid Gemini TTS API."""
+    notice = (
+        f"Gemini TTS（model={model}, turns={turns}）を呼び出します。"
+        " GEMINI_API_KEY に紐づくアカウントへ従量課金される場合があります。"
+    )
+    if assume_yes:
+        print(f"{notice} (--yes: 確認をスキップ)", file=sys.stderr)
+        return True
+
+    prompt = f"{notice}\n続行しますか？ [y/N]: "
+    try:
+        if sys.stdin.isatty():
+            reply = input(prompt)
+        else:
+            # Agent / pipe: do not hang; require prior user consent via -y.
+            print(
+                f"{notice}\n"
+                "対話入力がないため中止しました。"
+                " ユーザー許可後に -y / --yes を付けて再実行してください。",
+                file=sys.stderr,
+            )
+            return False
+    except EOFError:
+        print("確認入力が得られなかったため中止しました。", file=sys.stderr)
+        return False
+
+    return reply.strip().lower() in ("y", "yes")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -442,6 +478,14 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     speed = resolve_speed(args, turns, settings)
+
+    if not confirm_tts_charge(
+        assume_yes=args.yes,
+        turns=len(turns),
+        model=settings.model,
+    ):
+        print("ユーザー許可がないため音声生成を中止しました。", file=sys.stderr)
+        return 3
 
     print(
         f"Gemini TTS で生成中… model={settings.model} "

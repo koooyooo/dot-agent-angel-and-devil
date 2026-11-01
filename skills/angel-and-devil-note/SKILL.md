@@ -18,14 +18,16 @@ description: Has an angel and a devil read a given document and share their impr
     - 指定の別ファイルに出力
     - 元ファイルの末尾に引用形式で出力
     - 音声で読み上げ（ユーザーが明示した場合のみ）
+        - **必須: 生成前にユーザーへ許可を取る。** Gemini TTS は従量課金されうる。初回依頼でも「API を呼んで音声を生成してよいか」を確認し、拒否・曖昧なら読み上げをスキップしてテキストのみにする。勝手に `speak.py` を実行しない
         - 前提: 環境変数 `GEMINI_API_KEY` があること。無ければ読み上げはスキップし、テキスト出力のみ行う
         - 初回のみ依存インストール（venv 推奨）:
             - `python3 -m venv scripts/.venv`
             - `scripts/.venv/bin/pip install -r scripts/requirements.txt`
         - 掛け合いテキストをファイルに保存したうえで、次を実行する（`PYTHON=scripts/.venv/bin/python`）
-            - 保存のみ: `$PYTHON scripts/speak.py path/to/dialogue.md -o out.wav`
-            - 再生: `$PYTHON scripts/speak.py path/to/dialogue.md --play`
-            - パース確認: `$PYTHON scripts/speak.py path/to/dialogue.md --dry-run`
+            - ユーザー許可後のみ `-y` を付けてよい（対話確認を省略）:
+                - 保存のみ: `$PYTHON scripts/speak.py path/to/dialogue.md -o out.wav -y`
+                - 再生: `$PYTHON scripts/speak.py path/to/dialogue.md --play -y`
+            - パース確認（API なし・許可不要）: `$PYTHON scripts/speak.py path/to/dialogue.md --dry-run`
         - 既定値は [settings.yaml](settings.yaml)（model / voices / styles / 言語別 speed）。API キーは書かない
         - 上書き優先順: CLI（`--speed` 等） > 環境変数（`GEMINI_TTS_*`） > `settings.yaml` > 組み込み既定
         - `1.0` 以外の速度変更は `ffmpeg` が必要
