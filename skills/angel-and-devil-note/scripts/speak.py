@@ -55,20 +55,20 @@ def load_settings(path: Path | None = None) -> SpeakSettings:
         import yaml
     except ImportError as exc:
         raise SystemExit(
-            "PyYAML が未インストールです。例:\n"
+            "PyYAML is not installed. Example:\n"
             "  scripts/.venv/bin/pip install -r scripts/requirements.txt"
         ) from exc
 
     raw = yaml.safe_load(settings_path.read_text(encoding="utf-8")) or {}
     if not isinstance(raw, dict):
-        raise SystemExit(f"設定ファイルの形式が不正です: {settings_path}")
+        raise SystemExit(f"Invalid settings file format: {settings_path}")
 
     speed = raw.get("speed") or {}
     voices = raw.get("voices") or {}
     styles = raw.get("styles") or {}
     if not isinstance(speed, dict) or not isinstance(voices, dict) or not isinstance(styles, dict):
         raise SystemExit(
-            f"settings.yaml の speed / voices / styles はマップである必要があります: {settings_path}"
+            f"settings.yaml keys speed / voices / styles must be maps: {settings_path}"
         )
 
     return SpeakSettings(
@@ -220,7 +220,7 @@ def synthesize(
         from google import genai
     except ImportError as exc:
         raise SystemExit(
-            "google-genai が未インストールです。例:\n"
+            "google-genai is not installed. Example:\n"
             "  python3 -m venv scripts/.venv\n"
             "  scripts/.venv/bin/pip install -r scripts/requirements.txt"
         ) from exc
@@ -265,10 +265,10 @@ def synthesize(
     try:
         data = response.candidates[0].content.parts[0].inline_data.data
     except (AttributeError, IndexError, TypeError) as exc:
-        raise SystemExit(f"Gemini TTS から音声データを取得できませんでした: {response!r}") from exc
+        raise SystemExit(f"Could not extract audio data from Gemini TTS: {response!r}") from exc
 
     if not data:
-        raise SystemExit("Gemini TTS の応答に音声データがありませんでした。")
+        raise SystemExit("Gemini TTS response contained no audio data.")
     return data
 
 
@@ -293,11 +293,11 @@ def apply_speed(audio: bytes, speed: float) -> bytes:
     if abs(speed - 1.0) < 1e-6:
         return audio
     if speed <= 0:
-        raise SystemExit("--speed は正の数である必要があります。")
+        raise SystemExit("--speed must be a positive number.")
     ffmpeg = shutil.which("ffmpeg")
     if not ffmpeg:
         raise SystemExit(
-            "速度変更には ffmpeg が必要です（例: brew install ffmpeg）。"
+            "ffmpeg is required to change playback speed (e.g. brew install ffmpeg)."
         )
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -320,7 +320,7 @@ def apply_speed(audio: bytes, speed: float) -> bytes:
             subprocess.run(cmd, check=True, capture_output=True)
         except subprocess.CalledProcessError as exc:
             detail = (exc.stderr or b"").decode("utf-8", errors="replace").strip()
-            raise SystemExit(f"ffmpeg による速度変更に失敗しました: {detail}") from exc
+            raise SystemExit(f"ffmpeg speed change failed: {detail}") from exc
         return dst.read_bytes()
 
 
@@ -338,7 +338,7 @@ def play_wav(path: Path) -> None:
         subprocess.run(["aplay", "-q", str(path)], check=True)
         return
     raise SystemExit(
-        f"音声ファイルは保存しましたが再生コマンドが見つかりません: {path}"
+        f"Audio was saved, but no playback command was found: {path}"
     )
 
 
@@ -350,62 +350,62 @@ def read_input(path: Path | None) -> str:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="天使と悪魔の掛け合いを Gemini TTS で読み上げます。"
+        description="Read angel/devil dialogue aloud with Gemini TTS."
     )
     parser.add_argument(
         "input",
         nargs="?",
         type=Path,
-        help="掛け合いテキストのファイル（省略時は標準入力）",
+        help="Dialogue text file (default: stdin)",
     )
     parser.add_argument(
         "-o",
         "--output",
         type=Path,
-        help="出力 WAV パス（省略時は一時ファイル。--play 時は再生後も残す場合に指定）",
+        help="Output WAV path (omit for a temp file; keep with --play by setting this)",
     )
     parser.add_argument(
         "--play",
         action="store_true",
-        help="生成後に再生する（macOS は afplay）",
+        help="Play after synthesis (afplay on macOS)",
     )
     parser.add_argument(
         "--config",
         type=Path,
         default=None,
-        help=f"設定ファイルパス（default: {DEFAULT_SETTINGS_PATH}）",
+        help=f"Settings file path (default: {DEFAULT_SETTINGS_PATH})",
     )
     parser.add_argument(
         "--model",
         default=None,
-        help="TTS モデル名（未指定時は settings.yaml / 環境変数）",
+        help="TTS model name (else settings.yaml / env)",
     )
     parser.add_argument(
         "--angel-voice",
         default=None,
-        help="天使の prebuilt voice（未指定時は settings.yaml / 環境変数）",
+        help="Angel prebuilt voice (else settings.yaml / env)",
     )
     parser.add_argument(
         "--devil-voice",
         default=None,
-        help="悪魔の prebuilt voice（未指定時は settings.yaml / 環境変数）",
+        help="Devil prebuilt voice (else settings.yaml / env)",
     )
     parser.add_argument(
         "--speed",
         type=float,
         default=None,
-        help="再生速度（ffmpeg atempo。未指定時は言語別 settings / 環境変数）",
+        help="Playback speed via ffmpeg atempo (else per-language settings / env)",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="API を呼ばず、パース結果だけ表示する",
+        help="Parse only; do not call the API",
     )
     parser.add_argument(
         "-y",
         "--yes",
         action="store_true",
-        help="課金確認プロンプトを省略する（ユーザーが既に許可した場合のみ）",
+        help="Skip the billing confirmation prompt (only after the user has approved)",
     )
     return parser.parse_args(argv)
 
@@ -413,14 +413,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def confirm_tts_charge(*, assume_yes: bool, turns: int, model: str) -> bool:
     """Require explicit approval before calling the paid Gemini TTS API."""
     notice = (
-        f"Gemini TTS（model={model}, turns={turns}）を呼び出します。"
-        " GEMINI_API_KEY に紐づくアカウントへ従量課金される場合があります。"
+        f"About to call Gemini TTS (model={model}, turns={turns}). "
+        "This may incur charges on the account tied to GEMINI_API_KEY."
     )
     if assume_yes:
-        print(f"{notice} (--yes: 確認をスキップ)", file=sys.stderr)
+        print(f"{notice} (--yes: skipping confirmation)", file=sys.stderr)
         return True
 
-    prompt = f"{notice}\n続行しますか？ [y/N]: "
+    prompt = f"{notice}\nContinue? [y/N]: "
     try:
         if sys.stdin.isatty():
             reply = input(prompt)
@@ -428,13 +428,13 @@ def confirm_tts_charge(*, assume_yes: bool, turns: int, model: str) -> bool:
             # Agent / pipe: do not hang; require prior user consent via -y.
             print(
                 f"{notice}\n"
-                "対話入力がないため中止しました。"
-                " ユーザー許可後に -y / --yes を付けて再実行してください。",
+                "No interactive input available; aborting. "
+                "Re-run with -y / --yes after the user has approved.",
                 file=sys.stderr,
             )
             return False
     except EOFError:
-        print("確認入力が得られなかったため中止しました。", file=sys.stderr)
+        print("No confirmation input received; aborting.", file=sys.stderr)
         return False
 
     return reply.strip().lower() in ("y", "yes")
@@ -450,8 +450,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if not turns:
         print(
-            "天使/悪魔の発話が見つかりませんでした。"
-            " `😇 **天使**:` / `😈 **悪魔**:` 形式か確認してください。",
+            "No angel/devil turns found. "
+            "Expected markers like `😇 **Angel**:` / `😈 **Devil**:` "
+            "(or `天使` / `悪魔`).",
             file=sys.stderr,
         )
         return 1
@@ -472,7 +473,7 @@ def main(argv: list[str] | None = None) -> int:
     api_key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not api_key:
         print(
-            "GEMINI_API_KEY が未設定のため読み上げをスキップします。",
+            "GEMINI_API_KEY is unset; skipping speech.",
             file=sys.stderr,
         )
         return 2
@@ -484,11 +485,11 @@ def main(argv: list[str] | None = None) -> int:
         turns=len(turns),
         model=settings.model,
     ):
-        print("ユーザー許可がないため音声生成を中止しました。", file=sys.stderr)
+        print("Speech synthesis aborted without user approval.", file=sys.stderr)
         return 3
 
     print(
-        f"Gemini TTS で生成中… model={settings.model} "
+        f"Generating with Gemini TTS… model={settings.model} "
         f"angel={settings.angel_voice} devil={settings.devil_voice} "
         f"speed={speed} turns={len(turns)}",
         file=sys.stderr,
@@ -500,7 +501,7 @@ def main(argv: list[str] | None = None) -> int:
         out_path = args.output
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_bytes(audio)
-        print(f"保存しました: {out_path}")
+        print(f"Saved: {out_path}")
         if args.play:
             play_wav(out_path)
         return 0
@@ -510,7 +511,7 @@ def main(argv: list[str] | None = None) -> int:
             tmp_path = Path(tmp.name)
             tmp.write(audio)
         try:
-            print(f"一時保存: {tmp_path}")
+            print(f"Temp file: {tmp_path}")
             play_wav(tmp_path)
         finally:
             tmp_path.unlink(missing_ok=True)
@@ -518,7 +519,7 @@ def main(argv: list[str] | None = None) -> int:
 
     out_path = Path("angel-and-devil.wav")
     out_path.write_bytes(audio)
-    print(f"保存しました: {out_path.resolve()}")
+    print(f"Saved: {out_path.resolve()}")
     return 0
 
 

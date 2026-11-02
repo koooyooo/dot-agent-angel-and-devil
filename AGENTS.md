@@ -17,6 +17,7 @@ AI コーディングエージェント向けのリポジトリガイドです�
 ```text
 .
 ├── AGENTS.md
+├── CLAUDE.md                           # Claude Code 用。本ファイルを読み込むだけ
 ├── README.md / README_ja.md
 ├── LICENSE
 ├── examples/                           # サンプル掛け合い (.md) と音声 (.mp3)
@@ -24,12 +25,14 @@ AI コーディングエージェント向けのリポジトリガイドです�
 └── skills/
     └── angel-and-devil-note/
         ├── SKILL.md                    # スキル手順（エントリ）
+        ├── settings.yaml               # TTS 既定値（model / voices / styles / 言語別 speed）
         ├── references/
         │   ├── Angel.md
-        │   └── Devil.md
+        │   ├── Devil.md
+        │   └── Voices.md               # 選べるプリセット声の一覧
         └── scripts/
             ├── speak.py                # 掛け合い TTS
-            └── requirements.txt        # google-genai
+            └── requirements.txt        # google-genai, PyYAML
 ```
 
 スキルを追加する場合は `skills/<name>/` を作り、`install.sh` が配下をまとめてリンクする前提に合わせる。
@@ -50,7 +53,21 @@ $PYTHON scripts/speak.py path/to/dialogue.md -o out.wav -y  # WAV 保存（要 G
 $PYTHON scripts/speak.py path/to/dialogue.md --play -y      # 再生
 ```
 
-TTS 関連の環境変数: `GEMINI_API_KEY`（必須）, `GEMINI_TTS_MODEL`, `GEMINI_TTS_ANGEL_VOICE`, `GEMINI_TTS_DEVIL_VOICE`, `GEMINI_TTS_SPEED`（既定は日本語 `1.2` / 英語 `1.0`。`1.0` 以外は `ffmpeg` が必要）。`-y` なしでは確認プロンプト（非 TTY では中止）。
+TTS 関連の環境変数: `GEMINI_API_KEY`（必須）, `GEMINI_TTS_MODEL`, `GEMINI_TTS_ANGEL_VOICE`, `GEMINI_TTS_DEVIL_VOICE`, `GEMINI_TTS_SPEED`（既定は `settings.yaml` の `speed.ja` / `speed.en`。`1.0` 以外は `ffmpeg` が必要）。`-y` なしでは確認プロンプト（非 TTY では中止）。
+
+自動テストは無い。変更確認は `examples/sample-ja.md` / `sample-en.md` に対する `--dry-run`（API を呼ばず、パース結果と解決後の設定を表示）と `./install.sh --dry-run` で行う。
+
+```bash
+cd skills/angel-and-devil-note
+scripts/.venv/bin/python scripts/speak.py ../../examples/sample-ja.md --dry-run
+```
+
+### TTS 設定と `speak.py` の挙動
+
+- **優先順位**: CLI（`--model`, `--angel-voice`, `--devil-voice`, `--speed`, `--config`）> 環境変数 `GEMINI_TTS_*` > `settings.yaml` > `speak.py` の `BUILTIN_*` 定数。styles と言語別 speed は `settings.yaml`（なければ組み込み）からのみ来る。既定値を変えるときは `settings.yaml` と `BUILTIN_*` の食い違いに注意する。API キーは `settings.yaml` に書かない
+- **PyYAML**: `settings.yaml` の読み込み用。ファイルが無ければ不要
+- **言語判定**: 発話本文にひらがな・カタカナ・漢字が含まれれば日本語扱いで `speed.ja`、それ以外は `speed.en`
+- **終了コード**: `1` 発話マーカーが見つからない / `2` `GEMINI_API_KEY` 未設定でスキップ / `3` 課金確認で中止
 
 ## Working on the skill
 
