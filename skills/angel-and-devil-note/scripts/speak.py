@@ -4,12 +4,14 @@
 from __future__ import annotations
 
 import argparse
+import io
 import os
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import wave
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -25,6 +27,13 @@ BUILTIN_SPEED_JA = 1.2
 BUILTIN_SPEED_EN = 1.0
 BUILTIN_ANGEL_STYLE = "warm, bright, polite, and encouraging"
 BUILTIN_DEVIL_STYLE = "rough, streetwise, teasing, and mischievously cynical"
+
+# Long multi-speaker requests drift: around the 4th-5th turn the voices start to blend or change.
+# Synthesize one angel/devil exchange per request and join the PCM so each request stays short.
+TTS_CHUNK_TURNS = 2
+# Silence inserted between chunks so the joins sound like a normal turn switch.
+CHUNK_GAP_MS = 250
+DEFAULT_SAMPLE_RATE = 24_000
 
 SPEAKER_ANGEL = "Angel"
 SPEAKER_DEVIL = "Devil"
@@ -210,24 +219,77 @@ def build_parts(turns: list[tuple[str, str]], settings: SpeakSettings) -> list[d
     return parts
 
 
-def synthesize(
+def chunk_turns(
+    turns: list[tuple[str, str]], size: int = TTS_CHUNK_TURNS
+) -> list[list[tuple[str, str]]]:
+    """Split turns into consecutive chunks of `size` (the last one may be shorter)."""
+    size = max(1, size)
+    return [turns[i : i + size] for i in range(0, len(turns), size)]
+
+
+@dataclass(frozen=True)
+class PcmClip:
+    pcm: bytes
+    sample_rate: int
+    channels: int
+    sample_width: int = 2
+
+
+def to_pcm(data: bytes, mime_type: str | None) -> PcmClip:
+    """Decode a Gemini audio payload (WAV, or raw 16-bit PCM such as audio/L16;rate=24000)."""
+    if data[:4] == b"RIFF" and data[8:12] == b"WAVE":
+        with wave.open(io.BytesIO(data), "rb") as wav:
+            return PcmClip(
+                pcm=wav.readframes(wav.getnframes()),
+                sample_rate=wav.getframerate(),
+                channels=wav.getnchannels(),
+                sample_width=wav.getsampwidth(),
+            )
+    mime = (mime_type or "").lower()
+    rate = re.search(r"(?:^|;)\s*rate=(\d+)", mime)
+    channels = re.search(r"(?:^|;)\s*channels=(\d+)", mime)
+    return PcmClip(
+        pcm=data,
+        sample_rate=int(rate.group(1)) if rate else DEFAULT_SAMPLE_RATE,
+        channels=int(channels.group(1)) if channels else 1,
+    )
+
+
+def join_clips(clips: list[PcmClip], gap_ms: int = CHUNK_GAP_MS) -> bytes:
+    """Concatenate PCM clips into one WAV, with `gap_ms` of silence between clips."""
+    if not clips:
+        raise ValueError("no audio clips to join")
+    first = clips[0]
+    frame_bytes = first.sample_width * first.channels
+    gap = b"\0" * (round(first.sample_rate * gap_ms / 1000) * frame_bytes)
+    pieces: list[bytes] = []
+    for i, clip in enumerate(clips):
+        if (clip.sample_rate, clip.channels, clip.sample_width) != (
+            first.sample_rate,
+            first.channels,
+            first.sample_width,
+        ):
+            raise SystemExit("Gemini TTS returned chunks with different audio formats.")
+        if i:
+            pieces.append(gap)
+        # Keep whole sample frames so samples never shift phase at the joins.
+        pieces.append(clip.pcm[: len(clip.pcm) - len(clip.pcm) % frame_bytes])
+    out = io.BytesIO()
+    with wave.open(out, "wb") as wav:
+        wav.setnchannels(first.channels)
+        wav.setsampwidth(first.sample_width)
+        wav.setframerate(first.sample_rate)
+        wav.writeframes(b"".join(pieces))
+    return out.getvalue()
+
+
+def synthesize_chunk(
+    client: object,
     turns: list[tuple[str, str]],
     *,
     settings: SpeakSettings,
-    api_key: str,
-) -> bytes:
-    try:
-        from google import genai
-    except ImportError as exc:
-        raise SystemExit(
-            "google-genai is not installed. Example:\n"
-            "  python3 -m venv scripts/.venv\n"
-            "  scripts/.venv/bin/pip install -r scripts/requirements.txt"
-        ) from exc
-
-    # Force Gemini Developer API even if GOOGLE_GENAI_USE_VERTEXAI=true in the env.
-    client = genai.Client(api_key=api_key, vertexai=False)
-    response = client.models.generate_content(
+) -> PcmClip:
+    response = client.models.generate_content(  # type: ignore[attr-defined]
         model=settings.model,
         contents=[
             {
@@ -263,13 +325,41 @@ def synthesize(
     )
 
     try:
-        data = response.candidates[0].content.parts[0].inline_data.data
+        inline = response.candidates[0].content.parts[0].inline_data
+        data = inline.data
+        mime_type = inline.mime_type
     except (AttributeError, IndexError, TypeError) as exc:
         raise SystemExit(f"Could not extract audio data from Gemini TTS: {response!r}") from exc
 
     if not data:
         raise SystemExit("Gemini TTS response contained no audio data.")
-    return data
+    return to_pcm(data, mime_type)
+
+
+def synthesize(
+    turns: list[tuple[str, str]],
+    *,
+    settings: SpeakSettings,
+    api_key: str,
+) -> bytes:
+    """Synthesize TTS_CHUNK_TURNS turns per request and return one joined WAV."""
+    try:
+        from google import genai
+    except ImportError as exc:
+        raise SystemExit(
+            "google-genai is not installed. Example:\n"
+            "  python3 -m venv scripts/.venv\n"
+            "  scripts/.venv/bin/pip install -r scripts/requirements.txt"
+        ) from exc
+
+    # Force Gemini Developer API even if GOOGLE_GENAI_USE_VERTEXAI=true in the env.
+    client = genai.Client(api_key=api_key, vertexai=False)
+    chunks = chunk_turns(turns)
+    clips: list[PcmClip] = []
+    for i, chunk in enumerate(chunks, start=1):
+        print(f"  chunk {i}/{len(chunks)} ({len(chunk)} turns)", file=sys.stderr)
+        clips.append(synthesize_chunk(client, chunk, settings=settings))
+    return join_clips(clips)
 
 
 def atempo_filter(speed: float) -> str:
@@ -412,8 +502,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def confirm_tts_charge(*, assume_yes: bool, turns: int, model: str) -> bool:
     """Require explicit approval before calling the paid Gemini TTS API."""
+    requests = len(chunk_turns([("", "")] * turns))
     notice = (
-        f"About to call Gemini TTS (model={model}, turns={turns}). "
+        f"About to call Gemini TTS (model={model}, turns={turns}, requests={requests}). "
         "This may incur charges on the account tied to GEMINI_API_KEY."
     )
     if assume_yes:
@@ -465,7 +556,7 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"(settings) model={settings.model} "
             f"angel={settings.angel_voice} devil={settings.devil_voice} "
-            f"speed={speed}",
+            f"speed={speed} requests={len(chunk_turns(turns))}",
             file=sys.stderr,
         )
         return 0
@@ -491,7 +582,7 @@ def main(argv: list[str] | None = None) -> int:
     print(
         f"Generating with Gemini TTS… model={settings.model} "
         f"angel={settings.angel_voice} devil={settings.devil_voice} "
-        f"speed={speed} turns={len(turns)}",
+        f"speed={speed} turns={len(turns)} requests={len(chunk_turns(turns))}",
         file=sys.stderr,
     )
     audio = synthesize(turns, settings=settings, api_key=api_key)
