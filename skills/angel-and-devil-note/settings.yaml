@@ -1,7 +1,13 @@
-# TTS settings for angel-and-devil-note.
+# Settings for angel-and-devil-note.
 # Do not put API keys here — use the GEMINI_API_KEY environment variable.
 #
 # Precedence: CLI flags > environment variables > this file > built-in defaults.
+
+# Default language for the banter when the request does not name one.
+#   auto = match the language the user is writing in
+#   or a language code such as ja / en
+# An explicit request ("in English", "日本語で") always wins.
+language: auto
 
 model: gemini-3.8-flash-tts
 

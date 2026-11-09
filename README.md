@@ -158,6 +158,8 @@ $PYTHON scripts/speak.py path/to/dialogue.md --dry-run
 
 Defaults live in [`settings.yaml`](skills/angel-and-devil-note/settings.yaml) (model, voices, styles, per-language speed). Do not put API keys there.
 
+`language` sets the banter language used when the request does not name one (`ja`, `en`, …; `auto` matches the language you write in). Asking for a language in the request (e.g. "in Japanese") always wins.
+
 Prebuilt voice names: [`Voices.md`](skills/angel-and-devil-note/references/Voices.md).
 
 Override precedence: CLI flags > `GEMINI_TTS_*` env vars > `settings.yaml` > built-ins.
