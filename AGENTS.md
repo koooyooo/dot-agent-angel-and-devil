@@ -67,6 +67,7 @@ scripts/.venv/bin/python scripts/speak.py ../../examples/sample-ja.md --dry-run
 - **優先順位**: CLI（`--model`, `--angel-voice`, `--devil-voice`, `--speed`, `--config`）> 環境変数 `GEMINI_TTS_*` > `settings.yaml` > `speak.py` の `BUILTIN_*` 定数。styles と言語別 speed は `settings.yaml`（なければ組み込み）からのみ来る。既定値を変えるときは `settings.yaml` と `BUILTIN_*` の食い違いに注意する。API キーは `settings.yaml` に書かない
 - **PyYAML**: `settings.yaml` の読み込み用。ファイルが無ければ不要
 - **言語判定**: 発話本文にひらがな・カタカナ・漢字が含まれれば日本語扱いで `speed.ja`、それ以外は `speed.en`
+- **2 ターンずつ合成**: 掛け合い全体を 1 リクエストにすると 4〜5 ターン目あたりで声が変わる（マルチスピーカー生成のドリフト）ため、`TTS_CHUNK_TURNS = 2`（1 往復）ごとに API を呼び、PCM をつないで 1 本の WAV にする（つなぎ目に `CHUNK_GAP_MS` の無音）。リクエスト数はターン数の半分（切り上げ）で、確認プロンプトにも `requests=` として出る。Obsidian プラグインの `tts.ts` も同じ値・同じ分け方
 - **終了コード**: `1` 発話マーカーが見つからない / `2` `GEMINI_API_KEY` 未設定でスキップ / `3` 課金確認で中止
 
 ## Working on the skill
