@@ -6,6 +6,9 @@ description: Has an angel and a devil read a given document and share their impr
 ## Steps
 - Load content from a web page, file, stdin, etc.
     - If none is specified, ask the user
+- Decide the output language
+    - If the user names a language in the request, use it
+    - Otherwise read `language` in [settings.yaml](settings.yaml): a code such as `ja` / `en` means write in that language; `auto` (or missing) means match the language the user is writing in
 - Have the angel and devil share impressions of that content
     - Personas (always read these before writing the exchange; keep tone and roles):
         - Angel: [references/Angel.md](references/Angel.md)
@@ -28,7 +31,7 @@ description: Has an angel and a devil read a given document and share their impr
                 - Save only: `$PYTHON scripts/speak.py path/to/dialogue.md -o out.wav -y`
                 - Play: `$PYTHON scripts/speak.py path/to/dialogue.md --play -y`
             - Parse check (no API; no approval needed): `$PYTHON scripts/speak.py path/to/dialogue.md --dry-run`
-        - Defaults live in [settings.yaml](settings.yaml) (model / voices / styles / per-language speed). Do not put API keys there
+        - Defaults live in [settings.yaml](settings.yaml) (language / model / voices / styles / per-language speed). Do not put API keys there
         - Override precedence: CLI (`--speed`, etc.) > env (`GEMINI_TTS_*`) > `settings.yaml` > built-ins
         - Speed changes other than `1.0` require `ffmpeg`
         - Use turn markers `😇 **Angel**:` / `😈 **Devil**:` (Japanese: `天使` / `悪魔`)

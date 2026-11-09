@@ -158,6 +158,8 @@ $PYTHON scripts/speak.py path/to/dialogue.md --dry-run
 
 既定値は [`settings.yaml`](skills/angel-and-devil-note/settings.yaml)（model / voices / styles / 言語別 speed）。API キーは書かないでください。
 
+`language` には、依頼で言語を指定しなかったときの掛け合いの言語を書きます（`ja` / `en` など。`auto` は依頼文の言語に合わせる）。依頼で「英語で」などと指定すればそちらが優先されます。
+
 prebuilt 声の一覧: [`Voices.md`](skills/angel-and-devil-note/references/Voices.md)
 
 上書きの優先順: CLI フラグ > 環境変数 `GEMINI_TTS_*` > `settings.yaml` > 組み込み既定。
